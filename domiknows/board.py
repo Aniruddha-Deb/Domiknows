@@ -11,7 +11,6 @@ class Board:
 
 		self.pip_graph = None
 		self.boneyard = []
-		self.player_pips = {}
 
 		self.sum = 0
 		self.curr_move = 0
@@ -23,13 +22,13 @@ class Board:
 		"""Draw a single pip from the boneyard."""
 		pass
 	
-	def move(board, player):
+	def move(self, board, player):
 		"""chains the source domino (from the player) to the target domino (already
 		on the board). Position is not required, due to the uniqueness of the 
 		target and the source."""
 		pass
 	
-	def get_moves(pips):
+	def get_moves(self, pips):
 		"""Returns a list of all possible moves, for a player who has the following
 		set of pips"""
 		pass
@@ -37,8 +36,8 @@ class Board:
 	def get_board_information(self, player):
 		
 		info = BoardInformation(self)
-		info.self_pips = self.player_pips[player]
-		info.player_pip_count = {k : len(self.player_pips[k]) for k in self.player_pips.keys()}
+		info.self_pips = player.pips
+		info.player_pip_count = {p : len(p.pips) for p in self.players}
 		return info
 	
 class BoardInformation:
@@ -47,7 +46,7 @@ class BoardInformation:
 
 		self.pip_graph = board.pip_graph
 		self.boneyard_count = len(board.boneyard)
-		self.player_count = len(board.player_pips)
+		self.player_count = len(board.players)
 		self.move_history = board.move_history
 		# should board/boardinfo have rules as well? strategy would need the 
 		# rules to work (different rules would have different strategies, fml)

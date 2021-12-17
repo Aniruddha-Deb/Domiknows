@@ -13,6 +13,7 @@ class Player(ABC):
 		self.id = pid
 		self.score = 0
 		self.wins = 0
+		self.pips = []
 
 	@abstractmethod
 	def move(self, board):
@@ -29,7 +30,7 @@ class Player(ABC):
 		return False
 
 	def __ne__(self, other):
-		return not __eq__(self, other)
+		return not self.__eq__(other)
 
 @player
 class HumanPlayer(Player):
@@ -40,7 +41,8 @@ class HumanPlayer(Player):
 
 	def move(self, board):
 		"""waits on user from ui interactively and plays move."""
-		pass
+		input("Make a move ;)) : ")
+		return None
 
 @player
 class ComputerPlayer(Player):

@@ -19,6 +19,7 @@ class Game:
 		self.config = config
 		self.rule = rules[config.rule]()
 		self.players = self._create_players(config.player_types_strategies)
+		self.curr_player_move = None
 
 		self.player_scores = [0]*len(self.players)
 		self.player_hands_won = [0]*len(self.players)
@@ -29,13 +30,13 @@ class Game:
 		while (ingame):
 			# make new pips, reset player pip set, etc
 			self._init_new_board()
-			self.board = Board(self.pips, self.players)
 			inboard = True
 			move_seq = self.rule.arbiter_moves(self)
 			while (inboard):
-				self.ui.render_game(self)
 				for pidx in move_seq:
 					player = self.players[pidx]
+					self.curr_player_move = player
+					self.ui.render_game(self)
 					player_board_info = self.board.get_board_information(player)
 					move = player.move(player_board_info)
 
@@ -73,7 +74,7 @@ class Game:
 		pips = []
 		npips = int(pip_set[:len(pip_set)//2])
 		for i in range(0, npips+1):
-			for j in range(0, npips+1):
+			for j in range(i, npips+1):
 				pips.append(Domino(i,j))
 
 		return pips
@@ -93,6 +94,7 @@ class Game:
 	
 	def _init_new_board(self):
 		self.pips = self._create_pips(self.config.pip_set)
+		print(self.pips)
 		self.board = Board(self.pips, self.players)
 		self.rule.deal_pips(self.board)
 	

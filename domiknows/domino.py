@@ -3,7 +3,7 @@ from enum import Enum
 
 class Domino:
 
-	def __init__(self, t, l):
+	def __init__(self, t, b):
 		"""Creates a new Domino. Dominoes are immutable, and can only be played/connected
 		once. The layout of a domino, and it's connections are as follows:
 			  T
@@ -18,7 +18,7 @@ class Domino:
 		that t < b"""
 
 		self._t = t
-		self._l = l
+		self._b = b
 
 		self._T = self._L = self._R = self._B = None
 
@@ -37,6 +37,9 @@ class Domino:
 		the orientation is not required. Returns the connection position as a 
 		DominoOrientation, so that a move can be created"""
 		pass
+	
+	def __repr__(self):
+		return self.value.__str__() 
 
 class DominoOrientation(Enum):
 	

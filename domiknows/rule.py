@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from random import shuffle
+from math import ceil
 
 rules = {}
 def rule(cls):
@@ -85,9 +86,24 @@ class Block(Rule):
 		pass
 	
 	def deal_pips(self, board):
-		board.all_pips = shuffle(board.all_pips)
-		# TODO implement this
-		pass
+		shuffle(board.all_pips)
+		set_size = len(board.all_pips)
+		num_players = len(board.players)
+
+		# splitting rules (something that extends to other sets as well)
+		# for now, let ideal be 1:1:...:2 atmost. 
+		# 28,2 -> 7:7:14 (ceil(28/4) = 7)
+		# 28,3 -> 6:6:6:10 (ceil(28/5) = 6)
+		# 28,4 -> 5:5:5:5:8 (ceil(28/6) = 5)
+		#
+		# 36,5 -> 6:6:6:6:6:6
+		# 36,4 -> same as above
+		# 36,3 -> 8:8:8:12
+
+		num_pips_per_person = ceil(set_size/(num_players+2))
+		for i in range(num_players):
+			board.players[i].pips = board.all_pips[i*num_pips_per_person : (i+1)*num_pips_per_person]
+		board.boneyard = board.all_pips[num_players*num_pips_per_person : ]
 	
 	def end_game(self, game):
 		pass

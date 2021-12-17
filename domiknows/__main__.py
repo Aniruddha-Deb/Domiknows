@@ -5,7 +5,7 @@ from domiknows.ui import TextUI
 
 def test_main():
 	ui = TextUI()
-	game_options = GameConfiguration() # default options
+	game_options = GameConfiguration(pip_set="66") # default options
 
 	new_game = True
 	old_options = False
