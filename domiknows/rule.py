@@ -77,7 +77,7 @@ class Block(Rule):
 		return 0
 	
 	def arbiter_moves(self, game):
-		return [0,1]
+		return range(len(game.players))
 	
 	def end_board(self, board):
 		pass

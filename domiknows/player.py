@@ -41,6 +41,7 @@ class HumanPlayer(Player):
 
 	def move(self, board):
 		"""waits on user from ui interactively and plays move."""
+		self.ui.render_game()
 		input("Make a move ;)) : ")
 		return None
 

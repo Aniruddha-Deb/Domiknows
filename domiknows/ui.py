@@ -15,6 +15,7 @@ class TextUI(UI):
 		self.buffer = [[' ']*105 for i in range(39)]
 		self.width = 105
 		self.height = 39
+		self.prev_game_info = None
 
 		self._init_buffer()
 		
@@ -28,6 +29,11 @@ class TextUI(UI):
 			for j in range(pos[1], min(pos[1]+len(block[0]), self.width)):
 				self.buffer[i][j] = block[i-pos[0]][j-pos[1]]
 	
+	def clear(self, tl, br):
+		for i in range(min(tl[0], self.height), min(br[0], self.height)):
+			for j in range(min(tl[1], self.width), min(br[1], self.width)):
+				self.buffer[i][j] = ' '
+	
 	def _init_buffer(self):
 		for i in range(self.height):
 			self.buffer[i][12] = self.buffer[i][79] = '║'
@@ -37,8 +43,6 @@ class TextUI(UI):
 
 		self.buffer[16][12] = self.buffer[22][12] = '╣'
 
-		self.print_text("Player 1", (28,2))
-		self.print_text("Player 2", (9,2))
 		self.print_text("Boneyard", (0,86))
 
 	def get_game_options(self):
@@ -63,11 +67,15 @@ class TextUI(UI):
 		return GameConfiguration(**opt)
 	
 	# TODO implement renderer according to the format laid out in shell script
-	def render_game(self, game):
-		self._update_buffer_with_game_contents(game)
+	def render_game(self):
+		self._update_buffer_with_game_contents(self.game)
 		self._print_buffer()
 	
 	def _update_buffer_with_game_contents(self, game):
+
+		
+		self.print_text("Player 1", (28,2))
+		self.print_text("Player 2", (9,2))
 		self.print_text(str(game.player_scores[0]),(29,5))
 		self.print_text(str(game.player_scores[1]),(10,5))
 
@@ -119,6 +127,8 @@ class TextUI(UI):
 			opp_bones[i] = list(("".join(l)).center(66))
 
 		self.blit(opp_bones, (2, 13))
+
+		self.prev_game_info = board_info
 					
 		
 	def _print_buffer(self):

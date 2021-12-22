@@ -25,6 +25,8 @@ class Game:
 		self.player_hands_won = [0]*len(self.players)
 		self.hands_sequence = []
 
+		ui.game = self
+
 	def play(self):
 		ingame = True
 		while (ingame):
@@ -36,7 +38,6 @@ class Game:
 				for pidx in move_seq:
 					player = self.players[pidx]
 					self.curr_player_move = player
-					self.ui.render_game(self)
 					player_board_info = self.board.get_board_information(player)
 					move = player.move(player_board_info)
 
