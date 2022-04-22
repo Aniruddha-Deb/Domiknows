@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from random import shuffle
 from math import ceil
+from operator import itemgetter
 
 rules = {}
 def rule(cls):
@@ -64,9 +65,9 @@ class Rule(ABC):
 		well"""
 		pass
 	
-# TODO implement the simple block game here.
+# TODO implement 2-player block game here.
 @rule
-class Block(Rule):
+class TwoPlayerBlock(Rule):
 
 	def verify_move(self, board_info, move):
 		print("verifying move")
@@ -75,9 +76,33 @@ class Block(Rule):
 	def score_move(self, board_info, move):
 		print("scoring move")
 		return 0
-	
+
 	def arbiter_moves(self, game):
-		return range(len(game.players))
+		if not game.hands_sequence:
+			# check domino list and find who has higher bone
+			high_list = []
+			idx = 0
+			for player in game.players:
+				pip_values = [p.value for p in player.pips]
+				print(pip_values)
+				player_high = max([a+b for (a,b) in pip_values])
+				player_double_high = max([a for (a,b) in pip_values if a == b])
+				high_list.append((player_high,player_double_high,idx))
+				idx += 1
+
+			high_list.sort()
+			idx_list = []
+			for elem in high_list:
+				idx_list.append(elem[2])
+
+			return idx_list
+		else:
+			# check who won previous hand
+			if game.hands_sequence[-1]
+
+
+
+
 	
 	def end_board(self, board):
 		pass

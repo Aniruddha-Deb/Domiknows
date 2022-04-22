@@ -1,11 +1,11 @@
 # The main entry point script
 
 from domiknows.game import Game, GameConfiguration
-from domiknows.ui import TextUI
+from domiknows.ui import TwoPlayerTextUI
 
 def test_main():
-	ui = TextUI()
-	game_options = GameConfiguration(pip_set="66") # default options
+	ui = TwoPlayerTextUI()
+	game_options = GameConfiguration() # default options
 
 	new_game = True
 	old_options = False

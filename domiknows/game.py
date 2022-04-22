@@ -1,6 +1,6 @@
 from domiknows.board import Board
 from domiknows.player import Player, HumanPlayer, ComputerPlayer
-from domiknows.rule import Rule, Block, rules
+from domiknows.rule import Rule, TwoPlayerBlock, rules
 from domiknows.domino import Domino
 from domiknows.strategy import Strategy, GreedyStrategy
 
@@ -10,6 +10,12 @@ from dotenv import load_dotenv, find_dotenv
 from domiknows.rule import rules
 from domiknows.strategy import strategies
 from domiknows.player import HumanPlayer, ComputerPlayer
+
+# some personal notes while developing:
+#
+# 1. DON't worry about the UI at this stage. It's nothing more than a facade, and
+#    your objective is to develop an algorithm, not a fancy ui
+# 2. Worry about ruleset and gameplay, not about control of flow or small things.
 
 class Game:
 	
@@ -81,7 +87,7 @@ class Game:
 		return pips
 	
 	def _create_players(self, pts):
-		pid = 1
+		pid = 0
 		game_players = []
 		for desc in pts:
 			type_strat = desc.split(':')
@@ -110,7 +116,7 @@ class GameConfiguration:
 	# TODO maybe in v2, have a chess timer type thing for move arbitration
 
 	def __init__(self,
-		rule = "Block",
+		rule = "TwoPlayerBlock",
 		pip_set = "66",
 		point_limit = 100,
 		hand_limit = -1,

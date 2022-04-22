@@ -14,6 +14,7 @@ class Player(ABC):
 		self.score = 0
 		self.wins = 0
 		self.pips = []
+		self.hands_won = 0
 
 	@abstractmethod
 	def move(self, board):

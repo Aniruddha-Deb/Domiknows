@@ -8,7 +8,7 @@ class UI:
 		print("by Aniruddha Deb")
 		print("-----------------------------------------")
 
-class TextUI(UI):
+class TwoPlayerTextUI(UI):
 
 	def __init__(self):
 		super().__init__()
@@ -53,9 +53,8 @@ class TextUI(UI):
 		opt['point_limit'] = int(input('point_limit [100]: ') or 100)
 		opt['hand_limit'] = int(input('hand_limit [-1]: ') or -1)
 
-		num_players = int(input('num_players [2]: ') or 2)
 		pts = []
-		for i in range(num_players):
+		for i in range(2):
 			ptype = input(f'player{i+1}_type [HumanPlayer]: ') or 'HumanPlayer'
 			if (ptype == 'ComputerPlayer'):
 				pstrat = input('player_strategy [GreedyStrategy]:') or 'GreedyStrategy'
@@ -73,11 +72,17 @@ class TextUI(UI):
 	
 	def _update_buffer_with_game_contents(self, game):
 
-		
-		self.print_text("Player 1", (28,2))
-		self.print_text("Player 2", (9,2))
-		self.print_text(str(game.player_scores[0]),(29,5))
-		self.print_text(str(game.player_scores[1]),(10,5))
+		# TODO change positioning based on whose turn it is
+		if (game.curr_player_move.id == 0):
+			self.print_text("Player 1", (28,2))
+			self.print_text("Player 2", (9,2))
+			self.print_text(str(game.player_scores[0]),(29,5))
+			self.print_text(str(game.player_scores[1]),(10,5))
+		else:
+			self.print_text("Player 2", (28,2))
+			self.print_text("Player 1", (9,2))
+			self.print_text(str(game.player_scores[1]),(29,5))
+			self.print_text(str(game.player_scores[0]),(10,5))
 
 		board_info = game.board.get_board_information(game.curr_player_move)
 
@@ -108,8 +113,6 @@ class TextUI(UI):
 		self.blit(player_bones, (cp_by, 13))
 
 		opp_bones = None
-		# TODO extend this layout to more than two players: currently, the UI 
-		# cannot handle more than four players. Too much flexibility, rip
 		opp_pip_count = [board_info.player_pip_count[k] 
 						 for k in board_info.player_pip_count.keys()
 						 if k != game.curr_player_move][0]
