@@ -356,6 +356,29 @@ def computer_move_greedy(board):
     else:
         raise Exception("No move available")
 
+def computer_move_block(board):
+    conns = board.get_connections()
+    terms = board.get_terminals()
+    if not conns:
+        return (None, board.hands[board.curr_player][0])
+    moveset = []
+    for c in conns:
+        for p in board.hands[board.curr_player]:
+            if (p[0] == c or p[1] == c):
+                for k in pick(terms, c):
+                    if BlockGame.validate_move(board, k, p):
+                        moveset.append((k,p))
+
+    if (len(conns) == 2):
+        for move in moveset:
+            d = move[1]
+            if (conns[0] == d[1] and d[0] == conns[1]) or (conns[1] == d[0] and d[1] == conns[0]):
+                return move
+    if moveset:
+        return max(moveset, key=lambda x: sum(x[1]))
+    else:
+        raise Exception("No move available")
+
 def computer_move_EMM(board):
     # EMM.... Hmmmmm.
     pass
@@ -364,7 +387,7 @@ def computer_move_EMM(board):
 if __name__ == "__main__":
     gscores = []
     for i in range(100):
-        game = BlockGame(2, 7, 6, 120, [computer_move_greedy, computer_move_adhoc])
+        game = BlockGame(3, 7, 6, 120, [computer_move_block, computer_move_block, computer_move_greedy])
         game.play_game()
         gscores.append(game.scores)
 
