@@ -1,5 +1,6 @@
 from random import shuffle, randint
 from copy import deepcopy
+import math
 import re
 from collections import deque
 import matplotlib.pyplot as plt
@@ -43,16 +44,31 @@ class Domino:
             j.append(self.d[1])
         return j
 
+    def exclusion(l1,l2):
+        return [p for p in l1 if p not in l2]
+
+    def union(l1, l2):
+        a = exclusion(l1,l2)
+        a += l2
+        return a
+
+    def intersection(l1, l2):
+        return [p for p in l1 if p in l2]
+
     def is_double(self):
         return self.d[0] == self.d[1]
 
     def flatten(pips):
         return set([i for p in pips for i in p.d])
 
+    def sum(pips):
+        return sum(sum(h) for h in pips)
+
 class Board:
 
     def __init__(self, pipset, hands, boneyard):
         self.curr_player = -1
+        self.n_players = len(hands)
         self.hands = hands
         self.boneyard = boneyard
         self.pipset = pipset
@@ -87,6 +103,10 @@ class Board:
             else:
                 raise Exception("tgt does not exist in board")
 
+    # works only for hidden boards
+    def curr_player_is_us(self):
+        return isinstance(self.hands[self.curr_player],list)
+
     def get_connections(self):
         connections = []
         for bone in self.board:
@@ -105,14 +125,14 @@ class Board:
         return [bone for bone in self.board if (len(self.board[bone]) < 2) or (bone == self.spinner and len(self.board[bone]) < 4)]
 
     def hidden_copy(self, player_idx):
-        b = Board(self.pipset, None, None)
-        b.curr_player = self.curr_player
-        b.hands = []
+        hands = []
         for i in range(len(self.hands)):
             if i == player_idx:
-                b.hands.append(self.hands[i])
+                hands.append(self.hands[i])
             else:
-                b.hands.append(len(self.hands[i]))
+                hands.append(len(self.hands[i]))
+        b = Board(self.pipset, hands, None)
+        b.curr_player = self.curr_player
         b.boneyard = len(self.boneyard)
         b.spinner = self.spinner
         b.board = deepcopy(self.board)
@@ -120,6 +140,41 @@ class Board:
 
         # any changes to the hidden board won't affect the game board now
         return b
+
+    def visible_hands(self):
+        hands = []
+        for h in self.hands:
+            if isinstance(h,list):
+                hands += h
+        return hands
+
+    def visible_pips(self):
+        vpips = list(self.board.keys())
+        vpips += self.visible_hands()
+
+        if isinstance(self.boneyard, list):
+            vpips += self.boneyard
+
+        return vpips
+
+    def undo_move(self):
+        if not self.actions:
+            raise Exception("No move to be undone!")
+        self.curr_player -= 1
+        self.curr_player %= len(self.hands)
+        lastmove = self.actions[-1]
+        if lastmove == "BLOCK":
+            pass
+        else:
+            (tgt,src) = lastmove
+            self.board[tgt].remove(src)
+            self.board.pop(src)
+            if self.curr_player_is_us():
+                self.hands[self.curr_player].append(src)
+            else:
+                self.hands[self.curr_player] += 1
+
+        self.actions.pop()
 
     def print_board(self):
         # convert the board to a chain
@@ -233,8 +288,30 @@ class BlockGame:
         intersecn = tgt.join(src)
         if len(intersecn) < 1:
             return False
-        return (tgt in board.board and src in board.hands[board.curr_player] \
+        return (tgt in board.board \
                and len(board.board[tgt]) < 2 and (tgt.is_double() or intersecn[0] not in Domino.flatten(board.board[tgt])))
+
+    def valid_moves_from_pips(board, pips):
+        terminals = board.get_terminals()
+        val_moves = []
+        for t in terminals:
+            for p in pips:
+                if BlockGame.validate_move(board, t, p):
+                    val_moves.append((t,p))
+        return val_moves        
+
+    def valid_moves(board):
+        return BlockGame.valid_moves_from_pips(board,board.hands[board.curr_player])
+
+    def valid_pips(board, pips):
+        terminals = board.get_terminals()
+        val_pips = []
+        for p in pips:
+            for t in terminals:
+                if BlockGame.validate_move(board, t, p):
+                    val_pips.append(p)
+                    break
+        return val_pips
 
     def blocked(self, board):
         return (len(self.board.actions) > self.n_players and all(c == "BLOCK" for c in self.board.actions[-self.n_players:]))
@@ -379,15 +456,136 @@ def computer_move_block(board):
     else:
         raise Exception("No move available")
 
-def computer_move_EMM(board):
-    # EMM.... Hmmmmm.
-    pass
+def EMM_eval_pos(board,ilvl):
+    #for i in range(ilvl):
+    #    print("  ",end="")
+    #board.print_board()
 
+    visible_pips = board.visible_pips()
+    our_pips = board.visible_hands()
+    n_visible_pips = len(visible_pips)
+    invis_pips = Domino.exclusion(board.pipset,visible_pips)
+    n_invis_pips = len(invis_pips)
+    n_opp_pips = n_invis_pips - board.boneyard
+
+    if (n_opp_pips <= 0):
+        return -Domino.sum(our_pips)
+    if (len(our_pips) <= 0):
+        return Domino.sum(invis_pips)*n_opp_pips/n_invis_pips
+
+    if len(board.actions) >= 2 and board.actions[-1] == "BLOCK" and board.actions[-2] == "BLOCK":
+        # terminal node!
+        # Expected value of sum of opponent's pips is Sum of all unknown
+        # pips * (no. of opp pips)/(no. of total unknown pips)
+        S = Domino.sum(invis_pips)
+        if S*n_opp_pips/n_invis_pips > Domino.sum(our_pips):
+            # we win
+            return S*n_opp_pips/n_invis_pips
+        else:
+            return -Domino.sum(our_pips)
+
+    if (board.curr_player_is_us()):
+        # get the valid moves and pick the one with the most (expected) gain
+        valid_moves = BlockGame.valid_moves(board)
+        if not valid_moves:
+            # blocked!
+            board.actions.append("BLOCK")
+            board.curr_player = (board.curr_player+1)%board.n_players
+            val = EMM_eval_pos(board,ilvl+1)
+            board.undo_move()
+            return val
+        else:
+            expvals = []
+            for move in valid_moves:
+                board.connect_domino(move[0],move[1])
+                #print(move)
+                #print(board.hands[board.curr_player])
+                board.hands[board.curr_player].remove(move[1])
+                board.curr_player = (board.curr_player+1)%board.n_players
+                board.actions.append((move[0],move[1]))
+
+                expvals.append(EMM_eval_pos(board,ilvl+1))
+
+                board.undo_move()
+
+            return max(expvals)
+    else:
+        # random move: get expectation of this node
+        # the dominoes possible are the ones we don't have
+        valid_moves = BlockGame.valid_moves_from_pips(board,invis_pips)
+        valid_pips = BlockGame.valid_pips(board,invis_pips)
+        terminals = board.get_terminals()
+
+        n = n_invis_pips
+        vp = len(valid_pips)
+        r = n_opp_pips
+        vm = len(valid_moves)
+
+        if vm == 0:
+            # unconditionally blocked. 
+            board.actions.append("BLOCK")
+            board.curr_player = (board.curr_player+1)%board.n_players
+            val = EMM_eval_pos(board,ilvl+1)
+            board.undo_move()
+            return val
+
+        # Assume each valid move is equiprobable.
+        # Probability of block is C(n-vp,r)/C(n,r)
+        # (v = no. valid pips, n = no. invisible pips, r = no. pips in opp hand)
+        # Hence, probability of each move is (1 - C(n-vp,r)/C(n,r))/vm
+        # There's a more convincing derivation with the law of total probability
+        # in my notes. Too lengthy (and math-y) to type here.
+        #
+        # note that vm need not neccessarily be equal to vp (a single pip may 
+        # have more than one move available to it)
+        P_block = math.comb(n-vp,r)/math.comb(n,r)
+        val_accum = 0
+        for move in valid_moves:
+            board.connect_domino(move[0],move[1])
+            board.hands[board.curr_player] -= 1
+            board.curr_player = (board.curr_player+1)%board.n_players
+            board.actions.append((move[0],move[1]))
+
+            val_accum += EMM_eval_pos(board,ilvl+1)
+
+            board.undo_move()
+        val_accum *= ((1-P_block)/vm)
+
+        # opp block calc
+        board.actions.append("BLOCK")
+        board.curr_player = (board.curr_player+1)%board.n_players
+        val_accum += EMM_eval_pos(board,ilvl+1)*P_block
+        board.undo_move()
+        
+        return val_accum
+
+def computer_move_EMM(board):
+    if len(board.hands) != 2:
+        raise Exception("EMM is only two-player for now")
+    # construct the game tree here
+    if len(board.actions) < 6:
+        return computer_move_greedy(board)
+    try:
+        valid_moves = BlockGame.valid_moves(board)
+        expvals = []
+        for move in valid_moves:
+            board.connect_domino(move[0],move[1])
+            board.hands[board.curr_player].remove(move[1])
+            board.curr_player = (board.curr_player+1)%board.n_players
+            board.actions.append((move[0],move[1]))
+
+            expvals.append(EMM_eval_pos(board,1))
+
+            board.undo_move()
+
+        return valid_moves[expvals.index(max(expvals))]
+    except ValueError:
+        board.debug_board()
 
 if __name__ == "__main__":
     gscores = []
-    for i in range(100):
-        game = BlockGame(3, 7, 6, 120, [computer_move_block, computer_move_block, computer_move_greedy])
+    for i in range(5):
+        game = BlockGame(2, 7, 6, 80, [computer_move_EMM, computer_move_adhoc])
         game.play_game()
         gscores.append(game.scores)
 
