@@ -1,4 +1,4 @@
-from random import shuffle, randint
+from random import shuffle, randint, sample
 from copy import deepcopy
 import math
 import re
@@ -141,6 +141,9 @@ class Board:
         # any changes to the hidden board won't affect the game board now
         return b
 
+    def copy(self):
+        return deepcopy(self)
+
     def visible_hands(self):
         hands = []
         for h in self.hands:
@@ -156,6 +159,16 @@ class Board:
             vpips += self.boneyard
 
         return vpips
+
+    # Can't connect 
+    def do_move(self, action, move):
+        if move is None:
+            return
+        else:
+            board.connect_domino(move[0],move[1])
+            board.hands[board.curr_player].remove(move[1])
+        board.curr_player = (board.curr_player+1)%board.n_players
+        board.actions.append(action)
 
     def undo_move(self):
         if not self.actions:
@@ -328,20 +341,14 @@ class BlockGame:
             if BlockGame.matches(connections, self.board.hands[curr_player]):
                 (tgt, src) = self.player_moves[curr_player](self.board.hidden_copy(curr_player))
                 if BlockGame.validate_move(self.board, tgt, src):
-                    self.board.connect_domino(tgt, src)
-                    self.board.hands[curr_player].remove(src)
-                    self.board.actions.append((tgt, src))
+                    board.do_move((tgt,src),(tgt,src))
                 else:
                     print((tgt,src))
                     self.board.debug_board()
                     raise Exception("Invalid Move")
             else:
-                print(f"Player {curr_player} Blocked!")
-                self.board.actions.append("BLOCK")
-
-            # Better arbitration later: return a sequence of indices from arbiter
-            self.board.curr_player += 1;
-            self.board.curr_player %= self.n_players;
+                print(f"Player {curr_player+1} Blocked!")
+                board.do_move("BLOCK",None)
 
         # What do we do if two (or more) people tie on minimum scores? 
         # A: split the rest of the sum between the two
@@ -378,7 +385,8 @@ def user_move(board):
             board.debug_board()
             return user_move(board)
         captures = re.match("\(([0-9]),([0-9])\)", in_str)
-        return (None, tuple(int(i) for i in captures.groups()))
+        D = tuple(int(i) for i in captures.groups())
+        return (None, Domino(D[0],D[1]))
     else:
         in_str = input("<tgt> <src>: ")
         if (in_str == "d"):
@@ -456,7 +464,18 @@ def computer_move_block(board):
     else:
         raise Exception("No move available")
 
-def EMM_eval_pos(board,ilvl):
+#
+# TODO heuristic for search tree: 
+# a simple first level heuristic could be number of pips in hand
+# another is degrees of freedom: the number of different pips one can connect to
+# from their hand
+#
+# TODO inference: use the block information to more accurately predict the 
+# opponent's pipset
+# eg if they've been blocked at a 3 and a 5, they have no pips with a 3 or 5 in 
+# them. This reduces the candidate pips they can play from.
+
+def EMM_eval_pos(board,ilvl,alpha,beta):
     #for i in range(ilvl):
     #    print("  ",end="")
     #board.print_board()
@@ -477,8 +496,11 @@ def EMM_eval_pos(board,ilvl):
         # terminal node!
         # Expected value of sum of opponent's pips is Sum of all unknown
         # pips * (no. of opp pips)/(no. of total unknown pips)
+        #
+        # TODO calc standard deviation: assume S is normally distributed, so 
+        # pick win with a safer error margin (P > 80%, say?)
         S = Domino.sum(invis_pips)
-        if S*n_opp_pips/n_invis_pips > Domino.sum(our_pips):
+        if S*n_opp_pips*0.5/n_invis_pips > Domino.sum(our_pips):
             # we win
             return S*n_opp_pips/n_invis_pips
         else:
@@ -489,26 +511,23 @@ def EMM_eval_pos(board,ilvl):
         valid_moves = BlockGame.valid_moves(board)
         if not valid_moves:
             # blocked!
-            board.actions.append("BLOCK")
-            board.curr_player = (board.curr_player+1)%board.n_players
-            val = EMM_eval_pos(board,ilvl+1)
+            board.do_move("BLOCK",None)
+            val = EMM_eval_pos(board,ilvl+1,alpha,beta)
             board.undo_move()
             return val
         else:
-            expvals = []
+            val = -math.inf
             for move in valid_moves:
-                board.connect_domino(move[0],move[1])
-                #print(move)
-                #print(board.hands[board.curr_player])
-                board.hands[board.curr_player].remove(move[1])
-                board.curr_player = (board.curr_player+1)%board.n_players
-                board.actions.append((move[0],move[1]))
+                board.do_move(move,move)
 
-                expvals.append(EMM_eval_pos(board,ilvl+1))
-
+                val = max(val,EMM_eval_pos(board,ilvl+1,alpha,beta))
                 board.undo_move()
+                if val >= beta:
+                    break
+                alpha = max(alpha,val)
 
-            return max(expvals)
+
+            return val
     else:
         # random move: get expectation of this node
         # the dominoes possible are the ones we don't have
@@ -523,9 +542,8 @@ def EMM_eval_pos(board,ilvl):
 
         if vm == 0:
             # unconditionally blocked. 
-            board.actions.append("BLOCK")
-            board.curr_player = (board.curr_player+1)%board.n_players
-            val = EMM_eval_pos(board,ilvl+1)
+            board.do_move("BLOCK",None)
+            val = EMM_eval_pos(board,ilvl+1,alpha,beta)
             board.undo_move()
             return val
 
@@ -541,12 +559,9 @@ def EMM_eval_pos(board,ilvl):
         P_block = math.comb(n-vp,r)/math.comb(n,r)
         val_accum = 0
         for move in valid_moves:
-            board.connect_domino(move[0],move[1])
-            board.hands[board.curr_player] -= 1
-            board.curr_player = (board.curr_player+1)%board.n_players
-            board.actions.append((move[0],move[1]))
+            board.do_move(move,move)
 
-            val_accum += EMM_eval_pos(board,ilvl+1)
+            val_accum += EMM_eval_pos(board,ilvl+1,alpha,beta)
 
             board.undo_move()
         val_accum *= ((1-P_block)/vm)
@@ -554,7 +569,7 @@ def EMM_eval_pos(board,ilvl):
         # opp block calc
         board.actions.append("BLOCK")
         board.curr_player = (board.curr_player+1)%board.n_players
-        val_accum += EMM_eval_pos(board,ilvl+1)*P_block
+        val_accum += EMM_eval_pos(board,ilvl+1,alpha,beta)*P_block
         board.undo_move()
         
         return val_accum
@@ -563,31 +578,96 @@ def computer_move_EMM(board):
     if len(board.hands) != 2:
         raise Exception("EMM is only two-player for now")
     # construct the game tree here
-    if len(board.actions) < 6:
+    if len(board.board) < 4:
         return computer_move_greedy(board)
     try:
         valid_moves = BlockGame.valid_moves(board)
-        expvals = []
+        val = -math.inf
+        i = 0
+        idx = -1
         for move in valid_moves:
-            board.connect_domino(move[0],move[1])
-            board.hands[board.curr_player].remove(move[1])
-            board.curr_player = (board.curr_player+1)%board.n_players
-            board.actions.append((move[0],move[1]))
+            board.do_move(move,move)
 
-            expvals.append(EMM_eval_pos(board,1))
-
+            nval = EMM_eval_pos(board,1,math.inf,-math.inf)
+            if nval > val:
+                val = nval
+                idx = i
+            
             board.undo_move()
+            i += 1
 
-        return valid_moves[expvals.index(max(expvals))]
+        return valid_moves[idx]
     except ValueError:
         board.debug_board()
 
+def get_valid_pips(invis_pips, blocked_nos):
+    ret_pips = []
+    for pip in invis_pips:
+        if not (pip[0] in blocked_nos or pip[1] in blocked_nos):
+            ret_pips.append(pip)
+    return ret_pips
+
+# Two ways to do this: 
+# 1. MAX^n strategy for multiple players [https://www.aaai.org/Papers/AAAI/1986/AAAI86-025.pdf]
+# 2. simple minmax with alpha-beta
+# I'll start off with 2, see if it's fast and simple, then try implementing 1
+# (with the improvements described in it)
+def solve_PI(board, player):
+    # Hmmmm.... How do we solve a perfect information board?
+    # Evaluate the gametree deterministically
+    pass
+        # maximize
+
+
+
+def computer_move_PIMC(board):
+    # get candidate pipset(s), given board information
+    move_stack = []
+    unavailable_conns = [[] for i in range(board.n_players)]
+    head_player = (board.curr_player-1)%board.n_players
+    while board.actions:
+        last_action = board.actions[-1]
+        move_stack.push(last_action)
+        if last_action == "BLOCK":
+            conns = board.get_connections()
+            unavailable_conns[head_player] += conns
+        head_player = (head_player-1)%board.n_players
+
+    while move_stack:
+        move = move_stack.pop()
+        if move == "BLOCK":
+            board.do_move("BLOCK",None)
+        else:
+            board.do_move(move,move)
+
+    # do PIMC for 200 samples:
+    moves = []
+    for i in range(200):
+        board_cpy = board.copy()
+        visible_pips = board_cpy.visible_pips()
+        invis_pips = Domino.exclusion(board_cpy.pipset,visible_pips)
+        for i in range(board_cpy.n_players):
+            if not isinstance(board_cpy.hands[i],list):
+                # get invis_pips with pips of a particular color removed
+                pips_to_choose = get_valid_pips(invis_pips, unavailable_conns[i])
+                board_cpy.hands[i] = sample(pips_to_choose, board_cpy.hands[i])
+                invis_pips = Domino.exclusion(invis_pips, board_cpy.hands[i])
+        moves.append(solve_PI(board_cpy, board.curr_player))
+
+    # return most frequent move
+    # TODO tiebreaks: go greedy if a tie happens?
+    return max(moves, key=moves.count)
+
 if __name__ == "__main__":
     gscores = []
-    for i in range(5):
-        game = BlockGame(2, 7, 6, 80, [computer_move_EMM, computer_move_adhoc])
+    nwins = 0
+    for i in range(40):
+        game = BlockGame(2, 7, 6, 120, [computer_move_EMM, computer_move_block])
         game.play_game()
+        if game.scores[0] > game.scores[1]:
+            nwins += 1
         gscores.append(game.scores)
 
+    print(nwins)
     plt.plot(gscores)
     plt.show()
